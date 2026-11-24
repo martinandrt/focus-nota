@@ -25,6 +25,7 @@ PLIST
 # Stable signing identity keeps the Desktop-folder permission across rebuilds; ad-hoc (-) asks again each build.
 SIGN_ID=$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/{print $2; exit}' || true)
 codesign --force --sign "${SIGN_ID:--}" "$APP"
+[ -n "$SIGN_ID" ] || echo "note: no Apple Development certificate found, signed ad hoc; macOS will ask for folder access again" >&2
 if [ "${1:-}" = "--install" ]; then
   mkdir -p "$HOME/Applications"
   ditto "$APP" "$HOME/Applications/Focus Nota.app"

@@ -137,6 +137,7 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
     private func play(at position: Double = 0) {
         player?.stop()
         player = nil
+        var position = position  // belongs to the first file only; a file after a dropped one starts at 0
         // Drop files that cannot be opened or started, so a bad file is never retried in this queue.
         while index < queue.count {
             if let p = try? AVAudioPlayer(contentsOf: queue[index]), p.duration > 0 {
@@ -150,11 +151,14 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
                 }
             }
             queue.remove(at: index)
+            position = 0
         }
         if queue.isEmpty { stopped() } else { index = 0; play() }
     }
 
     private func stopped() {
+        player?.stop()
+        player = nil  // so the next Play reloads the station instead of a dead player
         queue = []
         for key in ["playing", "track", "pos", "dur"] { defaults.removeObject(forKey: key) }
         defaults.set(station, forKey: "now")
@@ -222,7 +226,9 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
             start(name, resume: false)
         case "pick", "vyber": if !pick(rest) { return "no mix name contains \(rest.joined(separator: " or "))" }
         case "pause", "pauza": if isPlaying { togglePlay() }
-        case "play", "hraj": if !isPlaying { togglePlay() }
+        case "play", "hraj":
+            if !isPlaying { togglePlay() }
+            if !isPlaying { return player == nil ? "nothing to play" : "playback did not start" }
         case "next", "dalsi": next()
         default: return "unknown command \(command)"
         }
