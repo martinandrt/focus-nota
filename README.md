@@ -58,6 +58,9 @@ NOTA="$HOME/Applications/Focus Nota.app/Contents/MacOS/Nota"
 "$NOTA" --status                     # what is playing and where
 ```
 
+Every `--cmd` waits for the app to answer: `ok: <station> · <mix>` and exit code 0, or `error: …` and exit code 1,
+so the agent knows the music really changed.
+
 ---
 
 Built for my own deep work with Claude Code. The UI follows your system language (English or Czech). MIT license.

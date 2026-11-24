@@ -1,7 +1,7 @@
 // Focus Nota: a tiny menu bar music player for deep work.
 // Starts playing on launch, shuffles long mixes, remembers the mix and position.
 // Stations are subfolders of the music folder (loose files there form one more station); "Mix" shuffles everything.
-// CLI for scripts and AI agents: Nota --cmd <mix | station NAME | pick WORD… | pause | play | next>, --status, --list, --test.
+// CLI for scripts and AI agents: Nota --cmd <mix | station NAME | pick WORD… | pause | play | next> (prints the app reply), --status, --list, --test.
 // "Picked" is a temporary queue from `pick`, not a folder.
 import AVFoundation
 import Cocoa
@@ -19,6 +19,7 @@ let musicRoot = defaults.string(forKey: "musicFolder").map { URL(fileURLWithPath
 
 let audioExtensions: Set<String> = ["mp3", "m4a", "aac", "wav", "aiff", "flac"]
 let commandNotification = Notification.Name("\(bundleID).cmd")
+let replyNotification = Notification.Name("\(bundleID).reply")
 let argSeparator = "\u{1f}"
 let seekStep = 600.0
 
@@ -51,12 +52,17 @@ enum Library {
     /// Station name -> folder. Loose files in the root form a station named after the root folder.
     static func stations() -> [(name: String, dir: URL)] {
         var out: [(String, URL)] = []
-        if !audioFiles(in: musicRoot).isEmpty { out.append((musicRoot.lastPathComponent, musicRoot)) }
+        // A folder may not take the name of a built-in station (Mix, Picked).
+        func name(_ dir: URL) -> String {
+            let n = dir.lastPathComponent
+            return n == mixStation || n == pickStation ? n + tr(" (folder)", " (složka)") : n
+        }
+        if !audioFiles(in: musicRoot).isEmpty { out.append((name(musicRoot), musicRoot)) }
         let subdirs = (try? FileManager.default.contentsOfDirectory(at: musicRoot, includingPropertiesForKeys: [.isDirectoryKey],
                                                                      options: [.skipsHiddenFiles])) ?? []
         for dir in subdirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
         where (try? dir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true && !audioFiles(in: dir).isEmpty {
-            out.append((dir.lastPathComponent, dir))
+            out.append((name(dir), dir))
         }
         return out
     }
@@ -96,23 +102,30 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
         var list = Library.files(of: name).shuffled()
         var position = 0.0
         if resume, let last = defaults.string(forKey: "track"), let i = list.firstIndex(where: { $0.path == last }) {
-            list.swapAt(0, i)
-            position = defaults.double(forKey: "pos")
+            let saved = defaults.double(forKey: "pos"), length = defaults.double(forKey: "dur")
+            if length > 0 && saved >= length - 5 {
+                list.append(list.remove(at: i))  // it had practically ended: play it last, not again now
+            } else {
+                list.swapAt(0, i)
+                position = saved
+            }
         }
         load(list, at: position)
     }
 
     /// Queue mixes whose file names contain the given words, in that order.
-    func pick(_ words: [String]) {
+    @discardableResult
+    func pick(_ words: [String]) -> Bool {
         let all = Library.allFiles()
         var list: [URL] = []
         for word in words {
             for file in all.filter({ $0.lastPathComponent.localizedCaseInsensitiveContains(word) }).shuffled()
             where !list.contains(file) { list.append(file) }
         }
-        guard !list.isEmpty else { return }
+        guard !list.isEmpty else { return false }
         station = pickStation
         load(list)
+        return true
     }
 
     private func load(_ list: [URL], at position: Double = 0) {
@@ -196,19 +209,24 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
 
     // MARK: Commands from the CLI
 
-    private func handle(_ args: [String]) {
-        guard let command = args.first else { return }
+    /// Runs a CLI command; returns an error message, or nil when it was done.
+    private func handle(_ args: [String]) -> String? {
+        guard let command = args.first else { return "no command" }
         let rest = Array(args.dropFirst())
         switch command {
         case "mix": start(mixStation, resume: false)
         case "station", "stanice":
-            if let name = rest.first, Library.stationNames().contains(name) { start(name, resume: false) }
-        case "pick", "vyber": pick(rest)
+            guard let name = rest.first, Library.stationNames().contains(name) else {
+                return "no station \(rest.first ?? "") (stations: \(Library.stationNames().joined(separator: ", ")))"
+            }
+            start(name, resume: false)
+        case "pick", "vyber": if !pick(rest) { return "no mix name contains \(rest.joined(separator: " or "))" }
         case "pause", "pauza": if isPlaying { togglePlay() }
         case "play", "hraj": if !isPlaying { togglePlay() }
         case "next", "dalsi": next()
-        default: break
+        default: return "unknown command \(command)"
         }
+        return player == nil && command != "pause" && command != "pauza" ? "nothing to play" : nil
     }
 
     // MARK: Menu bar
@@ -300,7 +318,13 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
         }
 
         DistributedNotificationCenter.default().addObserver(forName: commandNotification, object: nil, queue: .main) { [unowned self] n in
-            handle(((n.object as? String) ?? "").components(separatedBy: argSeparator))
+            // Message: request id, then the command and its arguments. Reply with the id and the outcome.
+            let parts = ((n.object as? String) ?? "").components(separatedBy: argSeparator)
+            guard let id = parts.first else { return }
+            let error = handle(Array(parts.dropFirst()))
+            let reply = error.map { "error: \($0)" } ?? "ok: \(station) · \(title)"
+            DistributedNotificationCenter.default().postNotificationName(
+                replyNotification, object: id + argSeparator + reply, userInfo: nil, deliverImmediately: true)
         }
 
         Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [unowned self] _ in save() }
@@ -327,10 +351,21 @@ if let i = arguments.firstIndex(of: "--cmd") {
         }
         Thread.sleep(forTimeInterval: 1.5)
     }
-    DistributedNotificationCenter.default().postNotificationName(
-        commandNotification, object: arguments[(i + 1)...].joined(separator: argSeparator),
-        userInfo: nil, deliverImmediately: true)
-    exit(0)
+    // Send with a request id and wait for the app's reply, so a script knows the command took effect.
+    let id = UUID().uuidString
+    var reply: String?
+    let center = DistributedNotificationCenter.default()
+    let observer = center.addObserver(forName: replyNotification, object: nil, queue: nil) { n in
+        let parts = ((n.object as? String) ?? "").components(separatedBy: argSeparator)
+        if parts.first == id, parts.count > 1 { reply = parts[1] }
+    }
+    center.postNotificationName(commandNotification, object: ([id] + arguments[(i + 1)...]).joined(separator: argSeparator),
+                                userInfo: nil, deliverImmediately: true)
+    let deadline = Date().addingTimeInterval(10)
+    while reply == nil && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+    center.removeObserver(observer)
+    print(reply ?? "error: no reply from Focus Nota within 10 s")
+    exit(reply?.hasPrefix("ok") == true ? 0 : 1)
 }
 
 if arguments.contains("--status") {
