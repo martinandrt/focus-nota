@@ -1,0 +1,80 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Demo scene for the README GIF. Frame is chosen by the URL hash (#1..#4); render.sh screenshots each one. -->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 720px; height: 450px; background: transparent; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+  .screen { position: absolute; inset: 0; border-radius: 16px; overflow: hidden;
+    background: radial-gradient(120% 90% at 20% 10%, #4a3a2e 0%, #231d19 45%, #111216 100%); }
+  .bar { position: absolute; top: 0; left: 0; right: 0; height: 30px; background: rgba(0,0,0,.32);
+    display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding: 0 18px; color: rgba(255,255,255,.88); font-size: 13px; }
+  .bar .apple { position: absolute; left: 18px; font-weight: 600; }
+  .note { width: 28px; height: 22px; border-radius: 5px; display: grid; place-items: center; }
+  .note.open { background: rgba(255,255,255,.22); }
+  .note svg { width: 14px; height: 16px; fill: #fff; transition: none; }
+  .note.dim svg { opacity: .38; }
+  .note.hidden { visibility: hidden; }
+
+  .menu { position: absolute; top: 36px; right: 70px; width: 300px; padding: 6px; border-radius: 10px;
+    background: rgba(246,244,241,.97); box-shadow: 0 18px 40px rgba(0,0,0,.45); font-size: 13px; color: #1d1d1f; }
+  .menu .i { height: 23px; display: flex; align-items: center; padding: 0 10px 0 22px; border-radius: 5px; position: relative; }
+  .menu .i .k { margin-left: auto; color: #8a8580; }
+  .menu .i.lbl { color: #8a8580; }
+  .menu .i.on::before { content: "\2713"; position: absolute; left: 7px; }
+  .menu .i.hl { background: #c8893f; color: #fff; }
+  .menu .i.hl .k { color: #fff; }
+  .menu .sep { height: 1px; background: #dcd8d3; margin: 5px 10px; }
+
+  .spot { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); width: 440px; border-radius: 14px;
+    background: rgba(40,38,40,.92); box-shadow: 0 20px 50px rgba(0,0,0,.5); color: #fff; overflow: hidden; }
+  .spot .q { padding: 14px 18px; font-size: 22px; display: flex; gap: 12px; align-items: center; }
+  .spot .q span { opacity: .45; font-size: 18px; }
+  .spot .r { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: #c8893f; font-size: 15px; }
+  .spot .r img { width: 30px; height: 30px; }
+
+  .term { position: absolute; left: 26px; bottom: 70px; width: 420px; border-radius: 10px; overflow: hidden;
+    background: rgba(18,18,20,.95); box-shadow: 0 16px 40px rgba(0,0,0,.5); font: 12.5px/1.55 Menlo, monospace; font-variant-ligatures: none; color: #e8e6e3; }
+  .term .t { height: 24px; background: rgba(255,255,255,.06); display: flex; align-items: center; gap: 6px; padding: 0 10px; }
+  .term .t i { width: 10px; height: 10px; border-radius: 50%; background: #5a5a5e; }
+  .term .b { padding: 10px 14px 12px; white-space: pre-wrap; }
+  .you { color: #f2b86b; }
+  .dimtxt { color: #8d8a86; }
+
+  .cap { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; color: #fff; font-size: 20px; font-weight: 600;
+    letter-spacing: .1px; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+</style></head>
+<body>
+<div class="screen">
+  <div class="bar">
+    <div class="note" id="note"><svg viewBox="0 0 14 16"><ellipse cx="4.2" cy="12.8" rx="4.2" ry="3.2"/><rect x="7" y="0.6" width="1.8" height="12.5"/><path d="M7 .6 13 2.8v3L8.8 4.2Z"/></svg></div>
+    <span>Tue 9:41</span></div>
+  <div id="layer"></div>
+  <div class="cap" id="cap"></div>
+</div>
+<script>
+const note = document.getElementById('note'), layer = document.getElementById('layer'), cap = document.getElementById('cap');
+const sep = '<div class="sep"></div>';
+const item = (t, k = '', cls = '') => `<div class="i ${cls}">${t}<span class="k">${k}</span></div>`;
+function menu({ title, station, time, hl = '', checked = 'Mix', paused = false }) {
+  const st = ['Mix (everything shuffled)', 'Classical, calm', 'Classical, energetic', 'Electronic'];
+  const key = s => s.startsWith('Mix') ? 'Mix' : s;
+  return `<div class="menu">${item(title, '', 'lbl')}${item(`${station} · ${time}`, '', 'lbl')}${sep}
+    ${item(paused ? 'Play' : 'Pause', 'space', hl === 'Pause' ? 'hl' : '')}${item('Next mix', 'N')}${item('Forward 10 min', ']')}${item('Back 10 min', '[')}${sep}
+    ${st.map(s => item(s, '', [checked === key(s) ? 'on' : '', hl === key(s) ? 'hl' : ''].join(' '))).join('')}${sep}
+    ${item('Open at login', '', 'on')}${item('Open music folder')}${item('Quit', 'Q')}</div>`;
+}
+const spot = q => `<div class="spot"><div class="q"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2"><circle cx="7.5" cy="7.5" r="5.5"/><path d="M11.5 11.5 16 16"/></svg>${q}</div>${q.length > 3 ? '<div class="r"><img src="../icon.png">Focus Nota<span style="margin-left:auto;opacity:.8;font-size:13px">Application</span></div>' : ''}</div>`;
+const term = lines => `<div class="term"><div class="t"><i></i><i></i><i></i></div><div class="b">${lines}</div></div>`;
+const ask = '<span class="you">you</span>  I need focus music, something energetic';
+const run = '\n<span class="dimtxt">agent</span> $ Nota --cmd pick "Vivaldi" "Deadline"';
+
+const frames = {
+  1: () => { note.className = 'note'; layer.innerHTML = ''; cap.textContent = 'Launch it. It plays.'; },
+  2: () => { note.className = 'note open'; layer.innerHTML = menu({ title: 'Classical Music Is NOT Boring, Vol. 2', station: 'Mix', time: '0:04 / 2:12:15' }); cap.textContent = 'One note in the menu bar.'; },
+  3: () => { note.className = 'note'; layer.innerHTML = term(ask + run); cap.textContent = 'Or let your AI agent pick.'; },
+  4: () => { note.className = 'note open'; layer.innerHTML = menu({ title: 'Vivaldi: High Energy for Productivity', station: 'Picked', time: '0:03 / 2:10:01', checked: '' }); cap.textContent = 'Or let your AI agent pick.'; },
+};
+(frames[location.hash.slice(1)] || frames[4])();
+</script>
+</body></html>
