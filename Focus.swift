@@ -86,6 +86,7 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
     private var station = mixStation
     private var queue: [URL] = []
     private var index = 0
+    private var autoplay = true  // false for the first load after a login launch: ready, but silent
 
     private var isPlaying: Bool { player?.isPlaying == true }
     private var title: String {
@@ -143,7 +144,8 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
             if let p = try? AVAudioPlayer(contentsOf: queue[index]), p.duration > 0 {
                 p.delegate = self
                 if position > 0 && position < p.duration - 5 { p.currentTime = position }
-                if p.play() {
+                if autoplay ? p.play() : p.prepareToPlay() {
+                    autoplay = true
                     player = p
                     save()
                     refresh()
@@ -159,6 +161,7 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
     private func stopped() {
         player?.stop()
         player = nil  // so the next Play reloads the station instead of a dead player
+        autoplay = true
         queue = []
         for key in ["playing", "track", "pos", "dur"] { defaults.removeObject(forKey: key) }
         defaults.set(station, forKey: "now")
@@ -305,6 +308,14 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
         defaults.set(enabled, forKey: "loginOff")
     }
 
+    private var launchedAtLogin = false
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // The launch event says whether macOS opened us as a login item; read it before it is gone.
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        launchedAtLogin = event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
@@ -335,6 +346,8 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
 
         Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [unowned self] _ in save() }
 
+        // Opened by macOS at login (or right after boot): sit in the menu bar silently until asked to play.
+        autoplay = !(launchedAtLogin || ProcessInfo.processInfo.systemUptime < 300)
         let saved = defaults.string(forKey: "station") ?? mixStation
         start(Library.stationNames().contains(saved) ? saved : mixStation, resume: true)
     }

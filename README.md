@@ -40,7 +40,7 @@ and macOS asks for folder access again after every rebuild.
 
 ## How it works
 
-- **It plays the moment it opens** and starts at login, so music is one click away all day.
+- **It plays the moment you open it.** It also starts at login, quietly: the note waits in the menu bar until you press play.
 - **It remembers where you stopped.** Quit in the middle of a two-hour mix, open it tomorrow, it carries on.
 - **Stations are folders.** Add a folder, get a station. **Mix** shuffles everything.
 - **The note dims when paused.** That is the whole interface.
