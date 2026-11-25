@@ -11,7 +11,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
   <key>CFBundleName</key><string>Focus Nota</string>
   <key>CFBundleDisplayName</key><string>Focus Nota</string>
-  <key>CFBundleIdentifier</key><string>cz.martinandrt.focus</string>
+  <key>CFBundleIdentifier</key><string>cz.martinandrt.focusnota</string>
   <key>CFBundleExecutable</key><string>Nota</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>

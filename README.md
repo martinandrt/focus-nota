@@ -32,7 +32,7 @@ Needs Xcode command line tools. Put your mixes (mp3, m4a, wav, aiff, flac) in `~
 one subfolder per station, then open the app from Spotlight with *focus*. Another folder:
 
 ```bash
-defaults write cz.martinandrt.focus musicFolder "~/Music/Focus"   # then quit and reopen the app
+defaults write cz.martinandrt.focusnota musicFolder "~/Music/Focus"   # then quit and reopen the app
 ```
 
 `build.sh` signs with your "Apple Development" certificate if you have one. Without it the build is signed ad hoc,

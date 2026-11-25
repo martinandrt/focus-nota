@@ -10,10 +10,14 @@ import ServiceManagement
 
 // MARK: - Settings
 
-let bundleID = "cz.martinandrt.focus"
+let bundleID = "cz.martinandrt.focusnota"
 let defaults = UserDefaults.standard  // the app and its CLI share the bundle, so one domain
+// Carry settings over from the old bundle id (macOS 26 kept that one blocked in the menu bar).
+if defaults.persistentDomain(forName: bundleID) == nil, let old = defaults.persistentDomain(forName: "cz.martinandrt.focus") {
+    defaults.setPersistentDomain(old, forName: bundleID)
+}
 
-// Music folder: override with `defaults write cz.martinandrt.focus musicFolder "~/Music/Focus"`.
+// Music folder: override with `defaults write cz.martinandrt.focusnota musicFolder "~/Music/Focus"`.
 let musicRoot = defaults.string(forKey: "musicFolder").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
     ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Focus music")
 
