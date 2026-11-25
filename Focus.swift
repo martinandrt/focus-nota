@@ -349,6 +349,13 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
                 replyNotification, object: id + argSeparator + reply, userInfo: nil, deliverImmediately: true)
         }
 
+        // Output device changed (headphones off, AirPods went to the phone): pause, never carry on out loud.
+        var output = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+                                                mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &output, .main) { [unowned self] _, _ in
+            if isPlaying { togglePlay() }
+        }
+
         Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [unowned self] _ in save() }
 
         // Opened by macOS at login (or right after boot): sit in the menu bar silently until asked to play.
