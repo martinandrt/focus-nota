@@ -263,6 +263,7 @@ final class Player: NSObject, NSApplicationDelegate, NSMenuDelegate, AVAudioPlay
     private func addItem(_ menu: NSMenu, _ title: String, key: String = "", checked: Bool? = nil,
                          _ action: @escaping () -> Void) {
         let item = NSMenuItem(title: title, action: #selector(runItem(_:)), keyEquivalent: key)
+        item.keyEquivalentModifierMask = []  // plain key (space = play/pause), not Cmd+key
         item.target = self
         item.representedObject = action
         if let checked { item.state = checked ? .on : .off }
